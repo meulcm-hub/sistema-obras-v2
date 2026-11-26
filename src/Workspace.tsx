@@ -9,7 +9,8 @@ const groups = ['Campo','Planejamento','Financeiro','Qualidade','Equipe','Cadast
 type Shortcut = { id: string; modulo: string; posicao: number }
 export function Workspace({ obra, userId, dark, toggleTheme, back, sair }: Props) {
   const allowed = modules.filter(m=>!m.costs || canSeeCosts(obra.perfil))
-  const [active, setActive] = useState('inicio')
+  const moduleKey = 'obras.module.' + userId + '.' + obra.id
+  const [active, setActive] = useState(()=>{ try { return sessionStorage.getItem(moduleKey) || 'inicio' } catch { return 'inicio' } })
   const [favorites, setFavorites] = useState<Shortcut[]>([])
   const [shortcutMessage, setShortcutMessage] = useState('')
   const [query, setQuery] = useState('')
@@ -19,7 +20,7 @@ export function Workspace({ obra, userId, dark, toggleTheme, back, sair }: Props
   const [expanded, setExpanded] = useState<string[]>(['Campo','Cadastros'])
   const current = allowed.find(m=>m.id===active) ?? allowed[0]
   const found = allowed.filter(m=>m.title.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(query.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'')))
-  function navigate(id: string) { setActive(id);setMobileOpen(false);setSearchOpen(false);setQuery('') }
+  function navigate(id: string) { if(!allowed.some(m=>m.id===id)) return; try { sessionStorage.setItem(moduleKey,id) } catch { /* storage may be disabled */ } setActive(id);setMobileOpen(false);setSearchOpen(false);setQuery('') }
   function toggleMenu() { setCollapsed(v=>{ localStorage.setItem('obras.menu.collapsed',String(!v)); return !v }) }
   useEffect(()=>{
     const handler=(e: KeyboardEvent)=>{

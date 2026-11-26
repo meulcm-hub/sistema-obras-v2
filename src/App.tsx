@@ -8,8 +8,17 @@ type Obra = { id: string; nome: string; cidade: string | null; perfil: string }
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
-  const [obras, setObras] = useState<Obra[]>([])
-  const [selected, setSelected] = useState<Obra | null>(null)
+  const [catalog, setCatalog] = useState<{ userId: string; obras: Obra[] } | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const userId = session?.user.id
+  const obras = catalog?.userId === userId ? catalog?.obras ?? [] : []
+  const selected = obras.find(obra => obra.id === selectedId) ?? null
+  const selectionKey = (id: string) => `obras.selected.${id}`
+  function selectObra(obra: Obra | null) {
+    if (!userId) return
+    try { if (obra) localStorage.setItem(selectionKey(userId), obra.id); else localStorage.removeItem(selectionKey(userId)) } catch { /* storage may be disabled */ }
+    setSelectedId(obra?.id ?? null)
+  }
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginMode, setLoginMode] = useState<'password' | 'link'>('password')
@@ -23,29 +32,42 @@ export default function App() {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
     const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next)
-      if (_event === 'SIGNED_OUT' || _event === 'SIGNED_IN') setSelected(null)
+      if (_event === 'SIGNED_OUT') { setCatalog(null); setSelectedId(null) }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
 
   useEffect(() => {
+    let disposed = false
+    let request = 0
+    if (!userId || !supabase) { setCatalog(null); setSelectedId(null); return }
+    const client = supabase
     async function loadObras() {
-      if (!supabase || !session) { setObras([]); return }
-      const { data, error } = await supabase
+      const currentRequest = ++request
+      const { data, error } = await client
         .from('usuarios_obra')
         .select('perfil, obras!inner(id, nome, cidade)')
-        .eq('usuario_id', session.user.id)
+        .eq('usuario_id', userId!)
         .eq('ativo', true)
-      if (error) { setObras([]); setMessage('Não foi possível carregar suas obras. Confira se o banco foi configurado.'); return }
+      if (disposed || currentRequest !== request) return
+      if (error) { setCatalog(null); setSelectedId(null); setMessage('Não foi possível carregar suas obras. Confira a conexão e atualize a página.'); return }
       const list = (data ?? []).flatMap(item => {
         const related = Array.isArray(item.obras) ? item.obras : [item.obras]
         return related.filter(Boolean).map(obra => ({ ...obra, perfil: item.perfil } as Obra))
       })
-      setObras(list)
+      let remembered: string | null = null
+      try { remembered = localStorage.getItem(selectionKey(userId!)) } catch { /* storage may be disabled */ }
+      const restored = list.find(obra => obra.id === remembered)
+      if (remembered && !restored) { try { localStorage.removeItem(selectionKey(userId!)) } catch { /* storage may be disabled */ } }
+      setCatalog({ userId: userId!, obras: list })
+      setSelectedId(restored?.id ?? null)
       setMessage(list.length ? '' : 'Seu acesso ainda não foi vinculado a uma obra. Peça ao administrador para liberar seu usuário.')
     }
     void loadObras()
-  }, [session])
+    const revalidate = () => { if (document.visibilityState === 'visible') void loadObras() }
+    document.addEventListener('visibilitychange', revalidate)
+    return () => { disposed = true; document.removeEventListener('visibilitychange', revalidate) }
+  }, [userId])
 
   async function entrar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -75,8 +97,9 @@ export default function App() {
 
   async function sair() {
     if (!supabase) return
+    selectObra(null)
     await supabase.auth.signOut()
-    setSelected(null)
+    setCatalog(null)
   }
 
   if (!supabaseConfigured) return (
@@ -91,7 +114,7 @@ export default function App() {
     </main>
   )
 
-  if (session && selected) return <Workspace obra={selected} userId={session.user.id} dark={dark} toggleTheme={toggleTheme} back={()=>setSelected(null)} sair={()=>void sair()} />
+  if (session && selected) return <Workspace key={session.user.id + ':' + selected.id} obra={selected} userId={session.user.id} dark={dark} toggleTheme={toggleTheme} back={()=>selectObra(null)} sair={()=>void sair()} />
 
   return (
     <div className={dark ? 'app dark' : 'app'}>
@@ -122,7 +145,7 @@ export default function App() {
             </form>
           </section>
         ) : (
-          <section className="welcome"><div className="eyebrow">ACESSO AUTENTICADO</div><h1>Escolha uma obra</h1><p>{session.user.email}</p><div className="obra-grid">{obras.map(obra => <button className="obra-card" key={obra.id} onClick={() => setSelected(obra)}><span>OBRA / {obra.perfil.toUpperCase()}</span><strong>{obra.nome}</strong><small>{obra.cidade || 'Cidade não informada'}</small><b>ABRIR ÁREA →</b></button>)}</div>{message && <div className="notice">{message}</div>}<button className="text-button" onClick={sair}>Sair da conta</button></section>
+          <section className="welcome"><div className="eyebrow">ACESSO AUTENTICADO</div><h1>{catalog?.userId === userId ? 'Escolha uma obra' : 'Carregando suas obras…'}</h1><p>{session.user.email}</p><div className="obra-grid">{obras.map(obra => <button className="obra-card" key={obra.id} onClick={() => selectObra(obra)}><span>OBRA / {obra.perfil.toUpperCase()}</span><strong>{obra.nome}</strong><small>{obra.cidade || 'Cidade não informada'}</small><b>ABRIR ÁREA →</b></button>)}</div>{message && <div className="notice">{message}</div>}<button className="text-button" onClick={sair}>Sair da conta</button></section>
         )}
         <footer>© {new Date().getFullYear()} SISTEMA DE OBRAS · V2 <span>AMBIENTE EM CONSTRUÇÃO</span></footer>
       </main>
