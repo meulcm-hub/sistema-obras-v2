@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { modules, canSeeCosts } from './modules'
 import { ModuleScreen } from './ModuleScreen'
+import { Diary } from './Diary'
 import { supabase } from './lib/supabase'
 
 type Obra = { id: string; nome: string; cidade: string | null; perfil: string }
@@ -69,7 +70,7 @@ export function Workspace({ obra, userId, dark, toggleTheme, back, sair }: Props
           <div className="workspace-panel"><div className="eyebrow">DESENVOLVIMENTO</div><h2>Etapa 2</h2><p>Menu e estrutura dos módulos. Os indicadores serão liberados com suas fontes de dados.</p></div>
         </div><h2 className="section-heading">Áreas de gestão</h2><div className="area-grid">{groups.map(g=>{const list=allowed.filter(m=>m.group===g);return list.length>0&&<button className="area-card" key={g} onClick={()=>{setExpanded(v=>v.includes(g)?v:[...v,g]);navigate((list.find(m=>m.ready)??list[0]).id)}}><span className="eyebrow">{list.length} TELAS PREVISTAS</span><strong>{g}</strong><small>Abrir área</small></button>})}</div></section>
         : current.id==='rapido'?<section className="module-screen"><div className="module-title"><h1>Lançamento rápido</h1></div><div className="dashboard-cards">{['pagamentos','lancamentos'].map(id=>{const item=allowed.find(m=>m.id===id);return item&&<button key={id} className="area-card" onClick={()=>navigate(id)}><strong>{item.title}</strong><small>Previsto nas próximas etapas</small></button>})}</div></section>
-        : <ModuleScreen key={current.id+obra.id} module={current} obraId={obra.id} perfil={obra.perfil}/>}
+        : current.id==='diario' ? <Diary key={obra.id+userId} obraId={obra.id} perfil={obra.perfil} userId={userId}/> : <ModuleScreen key={current.id+obra.id} module={current} obraId={obra.id} perfil={obra.perfil}/>}
       </div>
       <footer className="ws-bottom">SISTEMA DE OBRAS LCM · V2 <span>AMBIENTE DE TESTE</span></footer>
     </main>

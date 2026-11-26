@@ -20,8 +20,9 @@ export const modules: ModuleDef[] = [
   entry('relatorios','Relatórios','Principal'),
   entry('assistente','Assistente','Principal'),
   entry('rapido','Lançamento rápido','Principal',true),
+  {...entry('diario','Diário de Obra','Campo'),ready:true},
   ...[
-    ['diario','Diário de Obra'],['presenca','Presença'],['producao','Produção'],
+    ['presenca','Presença'],['producao','Produção'],
     ['estrutura','Programação Estrutura'],['monitoramento','Monitoramento'],['unidades','Unidades'],['estacas','Estacas']
   ].map(([id,title])=>entry(id,title,'Campo')),
   ...[

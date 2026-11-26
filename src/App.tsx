@@ -64,7 +64,7 @@ export default function App() {
       setMessage(list.length ? '' : 'Seu acesso ainda não foi vinculado a uma obra. Peça ao administrador para liberar seu usuário.')
     }
     void loadObras()
-    const revalidate = () => { if (document.visibilityState === 'visible') void loadObras() }
+    const revalidate = () => { if (document.visibilityState === 'visible' && navigator.onLine) void loadObras() }
     document.addEventListener('visibilitychange', revalidate)
     return () => { disposed = true; document.removeEventListener('visibilitychange', revalidate) }
   }, [userId])
