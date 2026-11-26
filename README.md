@@ -57,3 +57,7 @@ Não execute com dados reais em ambiente de teste compartilhado. A criação ini
 ## Publicação
 
 Ainda não há deploy. Arquivos e documentos ficarão no Google Drive; integração pendente. O plano gratuito deve ser utilizado sem upgrade automático. O envio de links de login e a auditoria automática no banco ainda precisam ser validados. Não publicar até configurar e testar o Supabase, as permissões e o fluxo de login. A publicação será uma etapa separada e autorizada.
+
+## Ambiente de testes no GitHub Pages
+
+A aplicação é compilada pelo workflow `pages-test.yml` na branch `etapa-1-fundacao`. Configure as variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` nas configurações do GitHub Actions (somente URL do projeto e chave publicável). Após alterar variáveis, execute uma nova compilação/publicação. No Supabase, autorize a URL completa do ambiente de testes na configuração de redirecionamento de autenticação. Nunca utilize chaves secretas no frontend.
