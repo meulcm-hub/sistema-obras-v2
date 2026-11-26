@@ -1,5 +1,7 @@
 -- Sistema de Obras v2 | Estrutura inicial
--- Executar no SQL Editor do projeto Supabase. Não inserir dados reais neste repositório.
+-- Aplicar somente em projeto novo, após revisão. Não inserir dados reais no repositório.
+
+begin;
 
 create extension if not exists pgcrypto;
 
@@ -26,7 +28,7 @@ create table if not exists public.usuarios_obra (
 create table if not exists public.auditoria (
   id bigint generated always as identity primary key,
   obra_id uuid not null references public.obras(id) on delete restrict,
-  usuario_id uuid not null references auth.users(id) on delete restrict,
+  usuario_id uuid references auth.users(id) on delete restrict,
   tabela text not null,
   registro_id text not null,
   acao text not null check (acao in ('INSERT','UPDATE','SOFT_DELETE','LOGIN','EXPORT')),
@@ -60,6 +62,7 @@ as $$
   select exists (
     select 1 from public.usuarios_obra u
     where u.obra_id = p_obra and u.usuario_id = (select auth.uid()) and u.ativo = true
+      and exists (select 1 from public.obras o where o.id = p_obra and o.ativa)
   );
 $$;
 
@@ -76,6 +79,7 @@ as $$
       and u.usuario_id = (select auth.uid())
       and u.ativo = true
       and u.perfil = any(p_perfis)
+      and exists (select 1 from public.obras o where o.id = p_obra and o.ativa)
   );
 $$;
 
@@ -110,11 +114,38 @@ for update to authenticated
 using (public.usuario_tem_perfil(obra_id, array['Administrador']))
 with check (public.usuario_tem_perfil(obra_id, array['Administrador']));
 
--- Auditoria: membro pode registrar eventos; leitura restrita à gestão.
+-- Auditoria: gravação exclusivamente pelo banco; leitura restrita à gestão.
 drop policy if exists "auditoria_insert_membro" on public.auditoria;
-create policy "auditoria_insert_membro" on public.auditoria
-for insert to authenticated
-with check (usuario_id = (select auth.uid()) and public.usuario_tem_acesso(obra_id));
+
+create or replace function public.registrar_auditoria_base()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_obra uuid;
+  v_anterior jsonb;
+  v_novo jsonb;
+  v_acao text;
+begin
+  v_novo := to_jsonb(new);
+  v_anterior := case when tg_op = 'UPDATE' then to_jsonb(old) else null end;
+  v_obra := case when tg_table_name = 'obras' then new.id else (v_novo->>'obra_id')::uuid end;
+  v_acao := case when tg_op = 'UPDATE' and v_anterior->>'ativo' = 'true' and v_novo->>'ativo' = 'false' then 'SOFT_DELETE' when tg_op = 'UPDATE' and v_anterior->>'ativa' = 'true' and v_novo->>'ativa' = 'false' then 'SOFT_DELETE' else tg_op end;
+  insert into public.auditoria (obra_id, usuario_id, tabela, registro_id, acao, dados_anteriores, dados_novos)
+  values (v_obra, (select auth.uid()), tg_table_name, new.id::text, v_acao, v_anterior, v_novo);
+  return new;
+end;
+$;
+revoke all on function public.registrar_auditoria_base() from public, anon, authenticated;
+
+drop trigger if exists auditoria_obras on public.obras;
+create trigger auditoria_obras after insert or update on public.obras
+for each row execute function public.registrar_auditoria_base();
+drop trigger if exists auditoria_vinculos on public.usuarios_obra;
+create trigger auditoria_vinculos after insert or update on public.usuarios_obra
+for each row execute function public.registrar_auditoria_base();
 
 drop policy if exists "auditoria_select_gestao" on public.auditoria;
 create policy "auditoria_select_gestao" on public.auditoria
@@ -151,8 +182,11 @@ using (usuario_id = (select auth.uid()));
 
 grant usage on schema public to authenticated;
 grant select on public.obras, public.usuarios_obra, public.auditoria, public.atalhos_usuario to authenticated;
-grant insert, update on public.usuarios_obra to authenticated;
-grant insert on public.auditoria to authenticated;
+revoke all on public.obras, public.usuarios_obra, public.auditoria, public.atalhos_usuario from anon;
+revoke insert, update, delete on public.obras, public.auditoria from authenticated;
+revoke update, delete on public.usuarios_obra from authenticated;
+grant insert on public.usuarios_obra to authenticated;
+grant update (perfil, ativo) on public.usuarios_obra to authenticated;
 grant insert, update, delete on public.atalhos_usuario to authenticated;
 revoke all on function public.usuario_tem_acesso(uuid) from public, anon;
 revoke all on function public.usuario_tem_perfil(uuid, text[]) from public, anon;
@@ -161,3 +195,5 @@ grant execute on function public.usuario_tem_perfil(uuid, text[]) to authenticat
 
 -- IMPORTANTE: o primeiro Administrador deve ser cadastrado manualmente pelo dono
 -- no SQL Editor, após criar a conta em Authentication > Users. Consulte README.md.
+
+commit;
