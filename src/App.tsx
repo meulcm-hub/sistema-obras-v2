@@ -10,6 +10,8 @@ export default function App() {
   const [obras, setObras] = useState<Obra[]>([])
   const [selected, setSelected] = useState<Obra | null>(null)
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loginMode, setLoginMode] = useState<'password' | 'link'>('password')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [dark, setDark] = useState(false)
@@ -45,14 +47,28 @@ export default function App() {
 
   async function entrar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!supabase) return
+    if (!supabase || loading) return
     setLoading(true); setMessage('')
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { shouldCreateUser: false, emailRedirectTo: new URL(import.meta.env.BASE_URL, window.location.href).href },
-    })
-    setMessage(error ? error.message : 'Enviamos um link de acesso para seu e-mail. Abra a mensagem neste dispositivo.')
-    setLoading(false)
+    try {
+      if (loginMode === 'password') {
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        if (error) {
+          setMessage(error.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' : 'Não foi possível entrar. Confira o e-mail e a senha cadastrados.')
+        }
+        setPassword('')
+      } else {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: email.trim(),
+          options: { shouldCreateUser: false, emailRedirectTo: new URL(import.meta.env.BASE_URL, window.location.href).href },
+        })
+        setMessage(error ? (error.status === 429 || error.message.toLowerCase().includes('rate limit') ? 'Limite temporário de e-mails. Aguarde ou entre com sua senha.' : 'Não foi possível enviar o link. Confira o e-mail autorizado e tente novamente.') : 'Enviamos um link de acesso para seu e-mail. Abra a mensagem neste dispositivo.')
+      }
+    } catch {
+      setMessage('Não foi possível conectar ao serviço de autenticação. Tente novamente.')
+      setPassword('')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function sair() {
@@ -84,8 +100,22 @@ export default function App() {
         <header className="topbar"><span>PLATAFORMA DE GESTÃO</span><span className="status"><i /> AMBIENTE DE CONFIGURAÇÃO</span></header>
         {!session ? (
           <section className="login-layout">
-            <div className="intro"><div className="eyebrow">NOVA PLATAFORMA · ETAPA 01</div><h1>Obra bem gerida.<br /><em>Decisão bem feita.</em></h1><p>Uma base única para acompanhar campo, equipe, financeiro, planejamento e qualidade — com acesso controlado por obra.</p><div className="intro-rule" /><small>ACESSO SEGURO · LINK MÁGICO · CONTROLE DE PERMISSÕES</small></div>
-            <form className="login-card" onSubmit={entrar}><div className="eyebrow">IDENTIFICAÇÃO</div><h2>Acessar sistema</h2><p>Informe seu e-mail corporativo. Você receberá um link seguro para entrar.</p><label htmlFor="email">E-MAIL</label><input id="email" type="email" autoComplete="email" required placeholder="voce@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} /><button className="primary" disabled={loading}>{loading ? 'ENVIANDO…' : 'ENVIAR LINK DE ACESSO'}</button>{message && <div className="notice">{message}</div>}<small>Seu acesso depende de um convite e das permissões cadastradas no banco.</small></form>
+            <div className="intro"><div className="eyebrow">NOVA PLATAFORMA · ETAPA 01</div><h1>Obra bem gerida.<br /><em>Decisão bem feita.</em></h1><p>Uma base única para acompanhar campo, equipe, financeiro, planejamento e qualidade — com acesso controlado por obra.</p><div className="intro-rule" /><small>ACESSO SEGURO · USUÁRIOS AUTORIZADOS · CONTROLE DE PERMISSÕES</small></div>
+            <form className="login-card" onSubmit={entrar}>
+              <div className="eyebrow">IDENTIFICAÇÃO</div>
+              <h2>Acessar sistema</h2>
+              <p>{loginMode === 'password' ? 'Informe seu e-mail corporativo e sua senha cadastrada.' : 'Informe seu e-mail corporativo para receber um link seguro.'}</p>
+              <label htmlFor="email">E-MAIL</label>
+              <input id="email" type="email" autoComplete="email" required placeholder="voce@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
+              {loginMode === 'password' && <>
+                <label htmlFor="password">SENHA</label>
+                <input id="password" type="password" autoComplete="current-password" required placeholder="Sua senha" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} />
+              </>}
+              <button className="primary" type="submit" disabled={loading}>{loading ? 'AGUARDE…' : loginMode === 'password' ? 'ENTRAR' : 'ENVIAR LINK DE ACESSO'}</button>
+              <button className="text-button" type="button" disabled={loading} onClick={() => { setLoginMode(loginMode === 'password' ? 'link' : 'password'); setPassword(''); setMessage('') }}>{loginMode === 'password' ? 'Entrar por link de e-mail' : 'Voltar para e-mail e senha'}</button>
+              {message && <div className="notice" role="status">{message}</div>}
+              <small>Seu acesso depende de cadastro autorizado e das permissões definidas no banco.</small>
+            </form>
           </section>
         ) : selected ? (
           <section className="welcome"><div className="eyebrow">ÁREA DE TRABALHO</div><h1>{selected.nome}</h1><p>{selected.cidade || 'Local não informado'} · Perfil: {selected.perfil}</p><div className="placeholder-panel"><span>ESTRUTURA INICIAL</span><h2>Esta obra está selecionada.</h2><p>As áreas do sistema serão liberadas nas próximas etapas de construção.</p></div><button className="secondary" onClick={() => setSelected(null)}>← Voltar às obras</button></section>
