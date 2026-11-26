@@ -218,7 +218,7 @@ Levar também as configurações que hoje estão em Script Properties (prazo con
 - [ ] Etapa 10 — Importação e cópia para a planilha
 - [ ] Etapa 11 — Revisão final
 
-Decisões tomadas e pendências: fundação reaproveitada na branch `etapa-1-fundacao` da conta LCM; compilação em validação, banco e autenticação ainda não conectados. Anexos ficam exclusivamente no Google Drive, banco guarda metadados e vínculo. Sem contratação de recursos pagos ou publicação sem autorização.
+Decisões tomadas e pendências: login por senha validado pelo administrador em ambiente de teste publicado. Etapa 2: navegação e interface de feriados implementadas; migração, testes de CRUD e validação visual pendentes. Fundação reaproveitada na branch `etapa-1-fundacao` da conta LCM; compilação em validação, banco e autenticação ainda não conectados. Anexos ficam exclusivamente no Google Drive, banco guarda metadados e vínculo. Sem contratação de recursos pagos ou publicação sem autorização.
 
 ---
 

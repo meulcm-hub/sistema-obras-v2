@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from './lib/supabase'
+import { Workspace } from './Workspace'
 
 type Obra = { id: string; nome: string; cidade: string | null; perfil: string }
 
@@ -14,7 +15,8 @@ export default function App() {
   const [loginMode, setLoginMode] = useState<'password' | 'link'>('password')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  const [dark, setDark] = useState(false)
+  const [dark, setDark] = useState(()=>localStorage.getItem('obras.theme') === 'dark')
+  function toggleTheme() { setDark(v=>{ localStorage.setItem('obras.theme',v?'light':'dark'); return !v }) }
 
   useEffect(() => {
     if (!supabase) return
@@ -89,12 +91,14 @@ export default function App() {
     </main>
   )
 
+  if (session && selected) return <Workspace obra={selected} userId={session.user.id} dark={dark} toggleTheme={toggleTheme} back={()=>setSelected(null)} sair={()=>void sair()} />
+
   return (
     <div className={dark ? 'app dark' : 'app'}>
       <aside className="sidebar">
         <div className="brand-mark">SO<span> / </span>02</div>
         <div className="brand-copy"><strong>SISTEMA DE OBRAS</strong><small>GESTÃO INTEGRADA</small></div>
-        <div className="side-bottom"><span>AMBIENTE V2</span><button onClick={() => setDark(!dark)} aria-label="Alternar tema">{dark ? '☀' : '◐'}</button></div>
+        <div className="side-bottom"><span>AMBIENTE V2</span><button onClick={toggleTheme} aria-label="Alternar tema">{dark ? '☀' : '◐'}</button></div>
       </aside>
       <main className="main">
         <header className="topbar"><span>PLATAFORMA DE GESTÃO</span><span className="status"><i /> AMBIENTE DE CONFIGURAÇÃO</span></header>
@@ -117,8 +121,6 @@ export default function App() {
               <small>Seu acesso depende de cadastro autorizado e das permissões definidas no banco.</small>
             </form>
           </section>
-        ) : selected ? (
-          <section className="welcome"><div className="eyebrow">ÁREA DE TRABALHO</div><h1>{selected.nome}</h1><p>{selected.cidade || 'Local não informado'} · Perfil: {selected.perfil}</p><div className="placeholder-panel"><span>ESTRUTURA INICIAL</span><h2>Esta obra está selecionada.</h2><p>As áreas do sistema serão liberadas nas próximas etapas de construção.</p></div><button className="secondary" onClick={() => setSelected(null)}>← Voltar às obras</button></section>
         ) : (
           <section className="welcome"><div className="eyebrow">ACESSO AUTENTICADO</div><h1>Escolha uma obra</h1><p>{session.user.email}</p><div className="obra-grid">{obras.map(obra => <button className="obra-card" key={obra.id} onClick={() => setSelected(obra)}><span>OBRA / {obra.perfil.toUpperCase()}</span><strong>{obra.nome}</strong><small>{obra.cidade || 'Cidade não informada'}</small><b>ABRIR ÁREA →</b></button>)}</div>{message && <div className="notice">{message}</div>}<button className="text-button" onClick={sair}>Sair da conta</button></section>
         )}
