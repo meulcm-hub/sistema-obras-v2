@@ -122,7 +122,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $auditoria$
 declare
   v_obra uuid;
   v_anterior jsonb;
@@ -137,7 +137,7 @@ begin
   values (v_obra, (select auth.uid()), tg_table_name, new.id::text, v_acao, v_anterior, v_novo);
   return new;
 end;
-$;
+$auditoria$;
 revoke all on function public.registrar_auditoria_base() from public, anon, authenticated;
 
 drop trigger if exists auditoria_obras on public.obras;
