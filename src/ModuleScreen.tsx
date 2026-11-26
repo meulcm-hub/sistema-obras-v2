@@ -55,8 +55,8 @@ export function ModuleScreen({ module, obraId, perfil }: Props) {
     if (!supabase || !editable || busy || !window.confirm('Desativar este feriado? O histórico será preservado.')) return
     setBusy(true)
     try {
-      const { error } = await supabase.from('feriados').update({ excluido_em: new Date().toISOString() }).eq('obra_id', obraId).eq('id', row.id)
-      if (error) { setMessage('Não foi possível desativar o registro.'); return }
+      const { error } = await supabase.rpc('desativar_feriado', { p_obra: obraId, p_feriado: row.id })
+      if (error) { setMessage('Não foi possível desativar. Confira se a migração de desativação foi aplicada e se você tem permissão.'); return }
       await load()
     } finally { setBusy(false) }
   }
